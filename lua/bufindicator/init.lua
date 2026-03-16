@@ -10,7 +10,7 @@ local defaults = {
   --   "static"  - window stays fixed, only highlight moves,
   --               supports border, ignores animate/animate_duration
   mode = "dynamic",
-  -- Auto-dismiss delay in milliseconds
+  -- Auto-dismiss delay in milliseconds, or false to disable auto-close
   timeout = 2000,
   -- Maximum floating window width (characters)
   width = 30,
@@ -35,7 +35,7 @@ local defaults = {
   -- Prefix for other (non-current) buffer lines
   other_prefix = "  ",
   -- Enable scroll animation when jumping to non-adjacent buffers (dynamic mode only)
-  animate = true,
+  animate = false,
   -- Total animation duration in milliseconds (dynamic mode only)
   animate_duration = 200,
   -- Border style for static mode: "none", "single", "double", "rounded", "solid", "shadow"
@@ -87,6 +87,30 @@ function M.show()
     end
 
     window.show(M.config)
+  end)
+end
+
+--- Manually show the buffer indicator.
+--- If already visible, resets the auto-close timeout.
+function M.open()
+  if not M._setup_done then
+    M.setup()
+  end
+
+  vim.schedule(function()
+    local bt = vim.bo.buftype
+    if bt == "nofile" or bt == "prompt" or bt == "terminal" then
+      return
+    end
+
+    window.show_or_reset(M.config)
+  end)
+end
+
+--- Manually close the buffer indicator.
+function M.close()
+  vim.schedule(function()
+    window.close()
   end)
 end
 

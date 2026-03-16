@@ -41,6 +41,15 @@ local function cleanup()
   state.buf_id = nil
 end
 
+--- Whether popup window and buffer are currently valid.
+--- @return boolean
+local function is_popup_visible()
+  return state.win_id
+    and state.buf_id
+    and vim.api.nvim_win_is_valid(state.win_id)
+    and vim.api.nvim_buf_is_valid(state.buf_id)
+end
+
 --- Compute the row offset so that `highlight_idx` is vertically centered.
 --- @param editor_height number Total usable editor height
 --- @param win_height number Height of the floating window
@@ -227,11 +236,30 @@ local function ease_out_intervals(steps, total_duration)
   return intervals
 end
 
+--- Resolve timeout setting.
+--- @param config table Plugin configuration
+--- @return number|false
+local function resolve_timeout(config)
+  local timeout = config.timeout
+  if timeout == false then
+    return false
+  end
+  if type(timeout) == "number" then
+    return timeout
+  end
+  return 2000
+end
+
 --- Start the auto-close timer.
 --- @param config table Plugin configuration
 local function start_close_timer(config)
+  local timeout = resolve_timeout(config)
+  if timeout == false then
+    return
+  end
+
   local timer = vim.uv.new_timer()
-  timer:start(config.timeout, 0, vim.schedule_wrap(function()
+  timer:start(timeout, 0, vim.schedule_wrap(function()
     cleanup()
   end))
   state.timer = timer
@@ -450,6 +478,30 @@ function M.show(config)
   else
     show_dynamic(config)
   end
+end
+
+--- Show indicator if hidden, or reset auto-close timeout if already visible.
+--- @param config table Plugin configuration
+function M.show_or_reset(config)
+  -- During animation there is no close timer yet; re-show to restart lifecycle.
+  if is_popup_visible() and not state.anim_timer then
+    local timeout = resolve_timeout(config)
+    if timeout == false then
+      return
+    end
+
+    stop_timer(state.timer)
+    state.timer = nil
+    start_close_timer(config)
+    return
+  end
+
+  M.show(config)
+end
+
+--- Close the indicator popup immediately.
+function M.close()
+  cleanup()
 end
 
 return M
